@@ -1,0 +1,36 @@
+# Byte-compiled / compiled
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.c
+
+# Build output
+build/
+build-*/
+dist/
+dist-*/
+*.egg-info/
+wheelhouse/
+
+# Local tooling
+.venv/
+venv/
+.t*/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Deployment / build helpers: local only, never published
+register.ps1
+build.ps1
+build.bat
+
+# Scratch backups from local editing sessions
+.backup-*/
+_verify-*/
+_scrubtest*
+

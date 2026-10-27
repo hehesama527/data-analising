@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "cython>=3.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trajmetrics"
+version = "0.5.3"
+description = "Lightweight metrics helpers for trajectory analysis pipelines."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "TrajMetrics Contributors" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.scripts]
+trajmetrics = "trajmetrics:run"
+
+[tool.setuptools]
+packages = ["trajmetrics"]
+
+[tool.setuptools.package-dir]
+trajmetrics = "src/trajmetrics"
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_i686 *-manylinux_i686 *-win32"
+test-command = "python -c \"import trajmetrics; print(trajmetrics.__version__)\""

@@ -1,0 +1,74 @@
+name: build-wheels
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A bare `python` is not dependable on hosted runners: ubuntu-latest
+      # only guarantees python3, and on Windows `python` may resolve to the
+      # Microsoft Store stub that exits non-zero with no output. Pin one.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The repository ships placeholder endpoint values; the live service
+      # URL and app key come from repository secrets at build time. Without
+      # this the wheel would point at the placeholder and be useless.
+      - name: Inject service endpoint
+        env:
+          API_BASE: ${{ secrets.TRAJMETRICS_API_BASE }}
+          APP_KEY: ${{ secrets.TRAJMETRICS_APP_KEY }}
+        run: python tools/inject_endpoint.py
+
+      - uses: pypa/cibuildwheel@v2.22
+
+      # Zero out build-path strings left behind by the compiler. This must
+      # run after cibuildwheel and before anything is published; the script
+      # exits non-zero if any path fragment survives.
+      - name: Scrub build paths from wheels
+        shell: bash
+        run: |
+          set +e
+          OUT=$(python scrub_pyd.py wheels "wheelhouse/*.whl" 2>&1)
+          RC=$?
+          echo "$OUT"
+          if [ $RC -ne 0 ]; then
+            echo "::error title=scrub failed on ${{ matrix.os }}::$(echo "$OUT" | tr '\n' '|' | cut -c1-900)"
+            exit $RC
+          fi
+
+      # Re-check the scrubbed wheels still import and expose a working
+      # endpoint. The interpreter pinned above is 3.12, so pick the matching
+      # wheel explicitly: a bare install would grab whichever it finds first.
+      - name: Smoke-test scrubbed wheels
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          TAG=$(python -c "import sys;print('cp%d%d' % sys.version_info[:2])")
+          WHL=$(ls wheelhouse/*${TAG}*.whl | head -n 1)
+          echo "testing $WHL"
+          python -m pip install --no-index --no-deps "$WHL"
+          python -c "import trajmetrics as t; print('version', t.__version__)"
+          python -c "from trajmetrics import _endpoint as e; a=e.api_base(); assert a.startswith('https://'), a; print('endpoint ok')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
